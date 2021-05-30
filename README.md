@@ -78,3 +78,56 @@ What's QEMU-KVM
 QEMU-KVM，是QEMU的一个特定于KVM加速模块的分支，里面包含了很多关于KVM的特定代码，与KVM模块一起配合使用。
 目前QEMU-KVM已经与QEMU合二为一，所有特定于KVM的代码也都合入了QEMU，当需要与KVM模块配合使用的时候，只需要在QEMU命令行加上 --enable-kvm就可以。
 
+QEMU入门指南
+==============
+前言
+我们在openstack中会经常使用很多镜像，比如row，row2等。openstack底层支持的虚拟机很多。而qemu就是其中佼佼者，性能，速度，适用性都比较高。特殊情况时，我们无法直接使用openstack创建或者修改镜像，就可以利用qemu，在单机环境下创建镜像，并上传到openstack使用。同时由于qemu出色的性能，即使单独作为一种创建虚拟机的工具来使用，也很不错。
+
+本文分为三个部分，第一部分主要介绍了qemu是什么，给人一个基本印象。第二部分重点介绍其安装。第三部分介绍其架构，这对我们的进一步使用有比较大的好处。
+
+什么是QEMU
+QEMU是一种通用的开源计算机仿真器和虚拟器。QEMU共有两种操作模式
+
+全系统仿真：能够在任意支持的架构上为任何机器运行一个完整的操作系统
+
+用户模式仿真：能够在任意支持的架构上为另一个Linux/BSD运行程序
+
+同时当进行虚拟化时，QEMU也可以以接近本机的性能运行KVM或者Xen。
+
+QEMU的再认识
+具体来说，当作为机器仿真器使用时，QEMU可以通过动态代码翻译机制（dynamic translation）在不同的机器上仿真任意一台机器（例如ARM板），并执行不同于主机架构的代码。同时由于动态代码翻译机制，它也能够实现不错的性能。
+
+而当QEMU用作虚拟器时，QEMU的优点在于其实纯软件实现的虚拟化模拟器，几乎可以模拟任何硬件设备，但是也正因为QEMU是纯软件实现的，因此所有指令都需要QEMU转手，因此会严重的降低性能。而可行的办法是通过配合KVM或者Xen来进行加速，目前肯定是以KVM为主。KVM 是硬件辅助的虚拟化技术，主要负责 比较繁琐的 CPU 和内存虚拟化，而 QEMU 则负责 I/O 虚拟化，两者合作各自发挥自身的优势，相得益彰。
+
+QEMU的wiki上这样说道：虽然QEMU本身是通过软件来模拟计算机，但是它也能够使用其他虚拟化技术进行加速。在Xen虚拟机管理程序下执行或在Linux中使用KVM内核模块时，QEMU支持虚拟化。当使用KVM，QEMU可以虚拟化x86架构，服务器和嵌入式 PowerPC，64位POWER，S390，32位和64位的ARM和MIPS guests等。
+
+![kemupics](pics/qumapic6.png)
+
+QEMU的安装与下载
+Ubuntu
+
+安装方法如下
+
+```
+sudo apt install qemu
+sudo apt install kvm libvirt-clients
+# 检查是否已经安装kvm
+# egrep -o '(vmx|svm)' /proc/cpuinfo
+# 使用kvm启动镜像
+sudo kvm -hda gxzy-tf-win7.qcow2 -m 8192 -smp 4
+# 检查正在运行的镜像
+# virsh -c qemu:///system list
+```
+
+或者，我们也可以直接使用qemu的命令进行操作，使用kvm加速只需要再加上--enable-kvm。
+
+安装好之后，会生成如下应用程序：
+
+![kemupics](pics/qumapic7.png)
+
+* vshmem-client/server：这是一个 guest 和 host 共享内存的应用程序，遵循 C/S 的架构。
+* qemu-ga：这是一个不利用网络实现 guest 和 host 之间交互的应用程序（使用 virtio-serial），运行在 guest 中。
+* qemu-io：这是一个执行 Qemu I/O 操作的命令行工具。
+* qemu-system-x86_64：Qemu 的核心应用程序，虚拟机就由它创建的。
+* qemu-img：创建虚拟机镜像文件的工具，下面有例子说明。
+* qemu-nbd：磁盘挂载工具。
